@@ -321,6 +321,7 @@ function SearchableBranchSelect({ label, value, branches, onChange }: { label: s
                 aria-selected={branch.name === value}
                 className={branch.name === value ? "selected" : ""}
                 key={`${branch.type}-${branch.name}`}
+                title={branch.name}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectBranch(branch)}
               >

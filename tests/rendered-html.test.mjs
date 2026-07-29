@@ -43,6 +43,12 @@ test("branch actions refresh the active view directly", async () => {
   assert.match(source, /onClick=\{refreshActiveView\}/);
 });
 
+test("searchable branch options expose the full name on hover", async () => {
+  const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /title=\{branch\.name\}/);
+});
+
 test("repository selection has no machine-specific default", async () => {
   const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(source, /const DEFAULT_REPO/);
