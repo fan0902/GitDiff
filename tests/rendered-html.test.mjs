@@ -49,6 +49,14 @@ test("searchable branch options expose the full name on hover", async () => {
   assert.match(source, /title=\{branch\.name\}/);
 });
 
+test("the default branch menu uses activity ordering without changing fuzzy search", async () => {
+  const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /if \(!query\.trim\(\)\) return orderDefaultBranches\(branches\)\.slice\(0, 80\)/);
+  assert.match(source, /fuzzyBranchScore\(branch\.name, query\)/);
+  assert.doesNotMatch(source, /left\.branch\.name === value/);
+});
+
 test("repository selection has no machine-specific default", async () => {
   const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(source, /const DEFAULT_REPO/);

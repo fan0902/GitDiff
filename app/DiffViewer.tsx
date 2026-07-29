@@ -2,6 +2,7 @@
 
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CommitGraph, CommitGraphData } from "./CommitGraph";
+import { orderDefaultBranches } from "./branch-order";
 import { markChangeBlocks, wrapChangeIndex, type ChangeMarkedRow } from "./change-navigation";
 
 const API_URL = process.env.NEXT_PUBLIC_GIT_DIFF_API_URL || "http://127.0.0.1:3101";
@@ -265,16 +266,15 @@ function BranchSelect({ label, value, branches, onChange }: { label: string; val
 function SearchableBranchSelect({ label, value, branches, onChange }: { label: string; value: string; branches: Branch[]; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const matches = useMemo(() => branches
-    .map((branch, index) => ({ branch, index, score: fuzzyBranchScore(branch.name, query) }))
-    .filter((entry): entry is { branch: Branch; index: number; score: number } => entry.score !== null)
-    .sort((left, right) => {
-      if (!query && left.branch.name === value) return -1;
-      if (!query && right.branch.name === value) return 1;
-      return left.score - right.score || left.index - right.index;
-    })
-    .slice(0, 80)
-    .map((entry) => entry.branch), [branches, query, value]);
+  const matches = useMemo(() => {
+    if (!query.trim()) return orderDefaultBranches(branches).slice(0, 80);
+    return branches
+      .map((branch, index) => ({ branch, index, score: fuzzyBranchScore(branch.name, query) }))
+      .filter((entry): entry is { branch: Branch; index: number; score: number } => entry.score !== null)
+      .sort((left, right) => left.score - right.score || left.index - right.index)
+      .slice(0, 80)
+      .map((entry) => entry.branch);
+  }, [branches, query]);
 
   function close() {
     setOpen(false);
