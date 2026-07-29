@@ -47,3 +47,14 @@ test("shipped sources contain no user-specific paths or browser coupling", async
     assert.doesNotMatch(source, /tabbit/i);
   }
 });
+
+test("the diff viewer exposes full-source and compact review modes", async () => {
+  const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
+  assert.match(source, />完整对照</);
+  assert.match(source, />仅看改动</);
+  assert.match(source, /基准源码/);
+  assert.match(source, /目标源码/);
+  assert.doesNotMatch(source, />统一视图</);
+  assert.doesNotMatch(source, />左右对比</);
+  assert.doesNotMatch(source, /\/Users\//);
+});

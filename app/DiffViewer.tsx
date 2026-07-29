@@ -49,6 +49,15 @@ type SplitRow = {
   content?: string;
 };
 
+type ReviewMode = "full" | "compact";
+
+type DiffPayload = {
+  diff: string;
+  truncated: boolean;
+};
+
+const EMPTY_DIFF: DiffPayload = { diff: "", truncated: false };
+
 async function post<T>(path: string, payload: object): Promise<T> {
   let response: Response;
   try {
@@ -334,13 +343,13 @@ export function DiffViewer() {
   const [target, setTarget] = useState("");
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [selectedPath, setSelectedPath] = useState("");
-  const [diff, setDiff] = useState("");
-  const [diffTruncated, setDiffTruncated] = useState(false);
+  const [fullDiff, setFullDiff] = useState<DiffPayload>(EMPTY_DIFF);
+  const [compactDiff, setCompactDiff] = useState<DiffPayload>(EMPTY_DIFF);
   const [search, setSearch] = useState("");
   const [pathFilter, setPathFilter] = useState("app/");
   const [filter, setFilter] = useState<"all" | "unread" | "added">("all");
   const [readFiles, setReadFiles] = useState<Set<string>>(new Set());
-  const [mode, setMode] = useState<"unified" | "split">("unified");
+  const [mode, setMode] = useState<ReviewMode>("full");
   const [loadingRepo, setLoadingRepo] = useState(false);
   const [loadingCompare, setLoadingCompare] = useState(false);
   const [loadingDiff, setLoadingDiff] = useState(false);
@@ -355,8 +364,12 @@ export function DiffViewer() {
   }, []);
 
   const selectedFile = comparison?.files.find((file) => file.path === selectedPath);
-  const rows = useMemo(() => parseDiff(diff), [diff]);
-  const splitRows = useMemo(() => toSplitRows(rows), [rows]);
+  const activeDiff = mode === "full" ? fullDiff : compactDiff;
+  const rows = useMemo(() => parseDiff(activeDiff.diff), [activeDiff.diff]);
+  const splitRows = useMemo(() => {
+    const parsed = toSplitRows(rows);
+    return mode === "full" ? parsed.filter((row) => row.kind === "code") : parsed;
+  }, [mode, rows]);
 
   const filteredFiles = useMemo(() => {
     if (!comparison) return [];
@@ -403,7 +416,8 @@ export function DiffViewer() {
       setTarget(defaults.target);
       setComparison(null);
       setSelectedPath("");
-      setDiff("");
+      setFullDiff(EMPTY_DIFF);
+      setCompactDiff(EMPTY_DIFF);
       setReadFiles(new Set());
       localStorage.setItem("branch-review:last-repo", data.repoPath);
       await runComparison(data.repoPath, defaults.base, defaults.target);
@@ -428,7 +442,8 @@ export function DiffViewer() {
       setSearch("");
       setFilter("all");
       setSelectedPath(firstVisibleFile?.path || "");
-      setDiff("");
+      setFullDiff(EMPTY_DIFF);
+      setCompactDiff(EMPTY_DIFF);
       if (firstVisibleFile) await loadFileDiff(firstVisibleFile, path, baseRef, targetRef);
     } catch (value) {
       setError(value instanceof Error ? value.message : "比较分支失败");
@@ -441,18 +456,22 @@ export function DiffViewer() {
     setSelectedPath(file.path);
     setSidebarOpen(false);
     setLoadingDiff(true);
-    setDiff("");
-    setDiffTruncated(false);
+    setFullDiff(EMPTY_DIFF);
+    setCompactDiff(EMPTY_DIFF);
     try {
-      const data = await post<{ diff: string; truncated: boolean }>("/api/diff", {
+      const payload = {
         repoPath: path,
         base: baseRef,
         target: targetRef,
         path: file.path,
         oldPath: file.oldPath,
-      });
-      setDiff(data.diff);
-      setDiffTruncated(data.truncated);
+      };
+      const [full, compact] = await Promise.all([
+        post<DiffPayload>("/api/full-diff", payload),
+        post<DiffPayload>("/api/diff", payload),
+      ]);
+      setFullDiff(full);
+      setCompactDiff(compact);
     } catch (value) {
       setError(value instanceof Error ? value.message : "读取文件差异失败");
     } finally {
@@ -581,10 +600,10 @@ export function DiffViewer() {
 
               <nav className="document-toolbar">
                 <div>
-                  <button className={mode === "unified" ? "active" : ""} onClick={() => setMode("unified")}>统一视图</button>
-                  <button className={mode === "split" ? "active" : ""} onClick={() => setMode("split")}>左右对比</button>
+                  <button className={mode === "full" ? "active" : ""} onClick={() => setMode("full")}>完整对照</button>
+                  <button className={mode === "compact" ? "active" : ""} onClick={() => setMode("compact")}>仅看改动</button>
                 </div>
-                <span>保留 3 行上下文 · 大文件按需读取</span>
+                <span>默认展示完整源码 · 左右同步阅读</span>
               </nav>
 
               {selectedFile ? (
@@ -596,19 +615,21 @@ export function DiffViewer() {
                       <div className="diff-actions"><span className="status-pill">{statusLabel(selectedFile.status)}</span><i>+{selectedFile.additions}</i>{selectedFile.deletions > 0 && <b>−{selectedFile.deletions}</b>}<button className={readFiles.has(selectedFile.path) ? "read" : ""} onClick={toggleRead}>{readFiles.has(selectedFile.path) ? <>{icons.check} 已读</> : "标为已读"}</button></div>
                     </header>
                     <div className="diff-meta"><span>{language(selectedFile.path)}</span><code>{selectedFile.path}</code>{selectedFile.oldPath && <span>从 {selectedFile.oldPath} 重命名</span>}</div>
-                    {loadingDiff ? <div className="diff-loading"><span /><span /><span /><span /></div> : diffTruncated ? (
-                      <div className="diff-message"><strong>文件差异过大</strong><span>为保持页面流畅，超过 2 MB 的单文件差异不在页面中加载。</span></div>
+                    {loadingDiff ? <div className="diff-loading"><span /><span /><span /><span /></div> : activeDiff.truncated ? (
+                      <div className="diff-message"><strong>文件差异过大</strong><span>为保持页面流畅，超过 2 MB 的单文件差异不在页面中加载。</span>{mode === "full" && !compactDiff.truncated && <button onClick={() => setMode("compact")}>仅看改动</button>}</div>
                     ) : selectedFile.binary ? (
                       <div className="diff-message"><strong>二进制文件</strong><span>Git 检测到内容变化，但无法按行显示。</span></div>
-                    ) : !diff ? (
+                    ) : !activeDiff.diff ? (
                       <div className="diff-message"><strong>没有可显示的文本差异</strong><span>文件可能只有模式或元数据发生变化。</span></div>
-                    ) : mode === "unified" ? (
-                      <div className="unified-diff" role="table" aria-label={`${selectedFile.path} 统一差异`}>
-                        {rows.map((row, index) => <DiffLine key={index} row={row} />)}
-                      </div>
                     ) : (
-                      <div className="split-diff" role="table" aria-label={`${selectedFile.path} 左右差异`}>
-                        {splitRows.map((row, index) => <SplitLine key={index} row={row} />)}
+                      <div className={`source-compare ${mode === "full" ? "full-source-diff" : "compact-source-diff"}`}>
+                        <div className="source-columns-header">
+                          <div><span>基准源码</span><code title={comparison?.base}>{comparison?.base}</code></div>
+                          <div><span>目标源码</span><code title={comparison?.target}>{comparison?.target}</code></div>
+                        </div>
+                        <div className="split-diff" role="table" aria-label={`${selectedFile.path} ${mode === "full" ? "完整源码对照" : "紧凑差异"}`}>
+                          {splitRows.map((row, index) => <SplitLine key={index} row={row} />)}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -621,21 +642,6 @@ export function DiffViewer() {
         </article>
       </div>
     </main>
-  );
-}
-
-function DiffLine({ row }: { row: DiffRow }) {
-  if (row.kind === "hunk" || row.kind === "meta") {
-    return <div className={`diff-line ${row.kind}`}><code>{row.content}</code></div>;
-  }
-  const marker = row.kind === "added" ? "+" : row.kind === "deleted" ? "−" : "";
-  return (
-    <div className={`diff-line ${row.kind}`}>
-      <span className="line-number">{row.oldNumber ?? ""}</span>
-      <span className="line-number">{row.newNumber ?? ""}</span>
-      <span className="line-marker">{marker}</span>
-      <code>{row.content || " "}</code>
-    </div>
   );
 }
 
