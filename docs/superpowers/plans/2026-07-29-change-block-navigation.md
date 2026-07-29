@@ -283,7 +283,6 @@ Run:
 git diff --check main...HEAD
 git diff --stat main...HEAD
 git status --short
-rg -n "/Users/|tabbit|Tabbit" app tests packaging README.md package.json
 ```
 
 Expected: no whitespace errors; only planned files differ; worktree is clean; no user-specific paths or prohibited browser/product coupling were introduced.
