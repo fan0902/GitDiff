@@ -76,12 +76,12 @@ test("wraps previous and next navigation", () => {
 Change the test script to run every `.test.mjs` file:
 
 ```json
-"test": "npm run build && node --test tests/*.test.mjs"
+"test": "npm run build && node --disable-warning=ExperimentalWarning --experimental-strip-types --test tests/*.test.mjs"
 ```
 
 - [ ] **Step 2: Run tests and verify the new test fails**
 
-Run: `node --test tests/change-navigation.test.mjs`
+Run: `node --disable-warning=ExperimentalWarning --experimental-strip-types --test tests/change-navigation.test.mjs`
 
 Expected: FAIL because `app/change-navigation.ts` does not exist.
 
@@ -138,7 +138,7 @@ export function wrapChangeIndex(current: number, direction: -1 | 1, count: numbe
 
 - [ ] **Step 4: Run the focused tests and verify they pass**
 
-Run: `node --test tests/change-navigation.test.mjs`
+Run: `node --disable-warning=ExperimentalWarning --experimental-strip-types --test tests/change-navigation.test.mjs`
 
 Expected: 3 tests pass, 0 fail.
 
