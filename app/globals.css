@@ -173,6 +173,10 @@ code { font-family: var(--font-geist-mono), "SFMono-Regular", Consolas, monospac
 .split-cell.added { background: var(--green-soft); }
 .split-cell.deleted { background: var(--red-soft); }
 .split-cell.empty { background: #f3eee5; }
+.split-line.current-change .split-cell:first-child { box-shadow: inset 3px 0 rgba(156,77,54,.42); }
+.split-line.current-change .split-cell:last-child { box-shadow: inset -3px 0 rgba(156,77,54,.42); }
+.split-line.current-change.change-start .split-cell { border-top: 1px solid rgba(156,77,54,.3); }
+.split-line.current-change.change-end .split-cell { border-bottom: 1px solid rgba(156,77,54,.3); }
 .split-meta { min-width: 900px; }
 .source-compare { max-height: min(72vh, 900px); overflow: auto; background: var(--card); }
 .source-compare .split-diff { overflow: visible; }
@@ -182,6 +186,14 @@ code { font-family: var(--font-geist-mono), "SFMono-Regular", Consolas, monospac
 .source-columns-header span { flex: 0 0 auto; color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: .08em; }
 .source-columns-header code { overflow: hidden; color: var(--ink); font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .source-columns-header > div:last-child span, .source-columns-header > div:last-child code { color: var(--accent); }
+.target-source-header { justify-content: space-between; }
+.source-column-title { min-width: 0; flex: 1; display: flex; align-items: center; gap: 9px; }
+.source-column-title code { min-width: 0; }
+.change-navigation { flex: 0 0 auto; min-height: 28px; padding: 2px; display: flex; align-items: center; gap: 2px; border: 1px solid #ddcfc2; border-radius: 7px; background: rgba(255,253,249,.88); box-shadow: 0 1px 3px rgba(68,55,35,.05); }
+.change-navigation output { padding: 0 7px; color: var(--muted); font: 650 10px var(--font-geist-mono); white-space: nowrap; }
+.change-navigation button { height: 22px; padding: 0 7px; border: 0; border-radius: 5px; background: transparent; color: var(--accent); font-size: 10px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.change-navigation button:hover { background: var(--accent-soft); }
+.change-navigation button:focus-visible { outline: 2px solid rgba(156,77,54,.45); outline-offset: 1px; }
 .full-source-diff .split-cell.context { background: var(--card); }
 .full-source-diff .split-cell.empty { background: #f1ede5; }
 .diff-loading { padding: 32px 24px; }
@@ -256,6 +268,7 @@ code { font-family: var(--font-geist-mono), "SFMono-Regular", Consolas, monospac
   .diff-actions { width: 100%; }
   .diff-actions button { margin-left: auto; }
   .diff-meta { overflow-x: auto; white-space: nowrap; }
+  .target-source-header .source-column-title code { display: none; }
   .welcome-card { min-height: 420px; margin: 20px auto; padding: 35px 27px; }
   .welcome-card h1 { font-size: 34px; }
 }
