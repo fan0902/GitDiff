@@ -393,9 +393,11 @@ export function DiffViewer() {
   }, []);
 
   useEffect(() => {
-    setCurrentChangeIndex(0);
     if (changeCount === 0) return;
-    const frame = window.requestAnimationFrame(() => scrollToChange(0));
+    const frame = window.requestAnimationFrame(() => {
+      setCurrentChangeIndex(0);
+      scrollToChange(0);
+    });
     return () => window.cancelAnimationFrame(frame);
   }, [activeDiff.diff, changeCount, mode, scrollToChange, selectedPath]);
 
