@@ -66,6 +66,30 @@ test("macOS launcher derives paths and delegates browser handling", async () => 
   assert.doesNotMatch(source, /\/Users\//);
 });
 
+test("local runtime uses the numeric loopback address", async () => {
+  const [devScript, launcher, browserHelper] = await Promise.all([
+    readFile(new URL("../scripts/dev.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../packaging/macos/GitDiff.applescript", import.meta.url), "utf8"),
+    readFile(new URL("../packaging/macos/open-gitdiff.jxa", import.meta.url), "utf8"),
+  ]);
+  assert.match(devScript, /"--hostname", "127\.0\.0\.1"/);
+  assert.match(launcher, /http:\/\/127\.0\.0\.1:9002/g);
+  assert.match(browserHelper, /http:\/\/127\.0\.0\.1:9002/g);
+  assert.doesNotMatch(`${launcher}\n${browserHelper}`, /http:\/\/localhost:9002/);
+});
+
+test("macOS packaging signs after installing the icon", async () => {
+  const [source, packageSource] = await Promise.all([
+    readFile(new URL("../packaging/macos/build-app.sh", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ]);
+  const steps = ["osacompile", "applet.icns", "codesign --force --deep --sign -", "codesign --verify --deep --strict"];
+  const positions = steps.map((step) => source.indexOf(step));
+  assert.ok(positions.every((position) => position >= 0));
+  assert.deepEqual([...positions].sort((left, right) => left - right), positions);
+  assert.match(packageSource, /"build:macos": "bash packaging\/macos\/build-app\.sh"/);
+});
+
 test("the local Git service contains no repository mutation commands", async () => {
   const sources = await Promise.all([
     readFile(new URL("../server/git-api.mjs", import.meta.url), "utf8"),
@@ -82,4 +106,25 @@ test("the local API exposes a readonly graph route", async () => {
   const source = await readFile(new URL("../server/git-api.mjs", import.meta.url), "utf8");
   assert.match(source, /url\.pathname === "\/api\/graph"/);
   assert.match(source, /buildCommitGraph\(repoPath, input\.base, input\.target, input\.focusCommit\)/);
+});
+
+test("the diff viewer exposes full-source and compact review modes", async () => {
+  const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
+  assert.match(source, />完整对照</);
+  assert.match(source, />仅看改动</);
+  assert.match(source, /基准源码/);
+  assert.match(source, /目标源码/);
+  assert.doesNotMatch(source, />统一视图</);
+  assert.doesNotMatch(source, />左右对比</);
+  assert.doesNotMatch(source, /\/Users\//);
+});
+
+test("the diff viewer exposes scoped change-block navigation", async () => {
+  const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
+  assert.match(source, /aria-label="代码变更导航"/);
+  assert.match(source, /上一处/);
+  assert.match(source, /下一处/);
+  assert.match(source, /data-change-index/);
+  assert.match(source, /sourceCompareRef\.current\?\.querySelector/);
+  assert.doesNotMatch(source, /document\.querySelector/);
 });

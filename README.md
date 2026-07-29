@@ -1,6 +1,6 @@
 # Branch Review
 
-一个只在本机运行的 Git 分支差异阅读器。输入任意本地 Git 仓库路径后，可以选择本地或远端跟踪分支，以统一视图或左右对比视图阅读文件差异。
+一个只在本机运行的 Git 分支差异阅读器。输入任意本地 Git 仓库路径后，可以选择本地或远端跟踪分支，在同一画布中对照阅读改动前后的完整源码。
 
 ## 启动
 
@@ -31,9 +31,7 @@ npm install
 
 ```bash
 mkdir -p build/macos "$HOME/Applications"
-osacompile -s -o build/macos/GitDiff.app packaging/macos/GitDiff.applescript
-cp packaging/macos/GitDiff.icns build/macos/GitDiff.app/Contents/Resources/applet.icns
-touch build/macos/GitDiff.app
+npm run build:macos
 ditto build/macos/GitDiff.app "$HOME/Applications/GitDiff.app"
 ```
 
@@ -57,7 +55,9 @@ Git API 仅监听 `127.0.0.1`，并只允许来自 `localhost:9002` 的页面跨
 - 展示提交数、文件数、增加行和删除行
 - 按路径前缀过滤变更文件；存在 `app/` 时默认展示该目录
 - 按目录浏览、搜索和筛选变更文件
-- 统一 Diff 与左右并排 Diff
+- 默认展示基准分支与目标分支的完整源码，并保持左右行对齐
+- 可切换到仅保留 3 行上下文的紧凑差异模式
+- 在目标源码标题栏连续跳转上一处或下一处变更，并循环浏览一个文件内的所有变更块
 - 在“提交关系”视图中查看共同祖先、分叉点、两侧独有提交和 merge 父边
 - 输入可选 commit SHA，定位它属于共同历史、基准侧、目标侧或当前分支对之外
 - 每侧默认展示 12 个独有提交，超出部分折叠；浅克隆和断开历史会明确提示

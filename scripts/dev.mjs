@@ -4,12 +4,13 @@ import { fileURLToPath } from "node:url";
 const projectDir = fileURLToPath(new URL("../", import.meta.url));
 const webEnv = {
   ...process.env,
+  GIT_DIFF_LOCAL: "1",
   WRANGLER_LOG_PATH: ".wrangler/wrangler.log",
 };
 
 const processes = [
   spawn(process.execPath, ["server/git-api.mjs"], { cwd: projectDir, stdio: "inherit" }),
-  spawn(process.execPath, ["node_modules/vinext/dist/cli.js", "dev", "--port", "9002"], {
+  spawn(process.execPath, ["node_modules/vinext/dist/cli.js", "dev", "--hostname", "127.0.0.1", "--port", "9002"], {
     cwd: projectDir,
     env: webEnv,
     stdio: "inherit",

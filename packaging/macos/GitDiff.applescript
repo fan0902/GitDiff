@@ -4,8 +4,8 @@ property sitePath : ""
 property pidPath : ""
 property logPath : ""
 property browserHelperPath : ""
-property pageURL : "http://localhost:9002/"
-property pageOrigin : "http://localhost:9002"
+property pageURL : "http://127.0.0.1:9002/"
+property pageOrigin : "http://127.0.0.1:9002"
 property healthURL : "http://127.0.0.1:3101/health"
 
 on run

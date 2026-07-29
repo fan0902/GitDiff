@@ -5,8 +5,8 @@ function openWithSystemDefault(url) {
 }
 
 function run(argv) {
-  const pageURL = argv[0] || "http://localhost:9002/";
-  const pageOrigin = argv[1] || "http://localhost:9002";
+  const pageURL = argv[0] || "http://127.0.0.1:9002/";
+  const pageOrigin = argv[1] || "http://127.0.0.1:9002";
   const url = $.NSURL.URLWithString(pageURL);
 
   try {

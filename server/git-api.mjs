@@ -5,6 +5,8 @@ import { git, repository, resolveCommit } from "./git-runtime.mjs";
 const PORT = Number(process.env.GIT_DIFF_API_PORT || 3101);
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_DIFF_BYTES = 2 * 1024 * 1024;
+const COMPACT_CONTEXT_LINES = 3;
+const FULL_CONTEXT_LINES = 1_000_000;
 const ALLOWED_ORIGINS = new Set([
   "http://localhost:9002",
   "http://127.0.0.1:9002",
@@ -142,7 +144,7 @@ async function compare(repoPath, base, target) {
   };
 }
 
-async function fileDiff(repoPath, base, target, path, oldPath) {
+async function fileDiff(repoPath, base, target, path, oldPath, contextLines = COMPACT_CONTEXT_LINES) {
   if (typeof path !== "string" || !path || path.includes("\u0000")) throw new Error("文件路径无效");
   const [baseSha, targetSha] = await Promise.all([
     resolveCommit(repoPath, base),
@@ -154,7 +156,7 @@ async function fileDiff(repoPath, base, target, path, oldPath) {
   try {
     const diff = await git(
       repoPath,
-      ["diff", "--no-ext-diff", "--find-renames", "--unified=3", `${baseSha}...${targetSha}`, "--", ...paths],
+      ["diff", "--no-ext-diff", "--find-renames", `--unified=${contextLines}`, `${baseSha}...${targetSha}`, "--", ...paths],
       { maxBuffer: MAX_DIFF_BYTES }
     );
     return { diff, truncated: false };
@@ -200,7 +202,26 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/diff") {
       const input = await body(request);
       const repoPath = await repository(input.repoPath);
-      return json(request, response, 200, await fileDiff(repoPath, input.base, input.target, input.path, input.oldPath));
+      return json(request, response, 200, await fileDiff(
+        repoPath,
+        input.base,
+        input.target,
+        input.path,
+        input.oldPath,
+        COMPACT_CONTEXT_LINES,
+      ));
+    }
+    if (request.method === "POST" && url.pathname === "/api/full-diff") {
+      const input = await body(request);
+      const repoPath = await repository(input.repoPath);
+      return json(request, response, 200, await fileDiff(
+        repoPath,
+        input.base,
+        input.target,
+        input.path,
+        input.oldPath,
+        FULL_CONTEXT_LINES,
+      ));
     }
     return json(request, response, 404, { error: "接口不存在" });
   } catch (error) {
