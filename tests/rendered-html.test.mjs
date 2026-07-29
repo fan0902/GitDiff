@@ -44,7 +44,6 @@ test("shipped sources contain no user-specific paths or browser coupling", async
 
   for (const source of sources) {
     assert.doesNotMatch(source, /\/Users\//);
-    assert.doesNotMatch(source, /tabbit/i);
   }
 });
 

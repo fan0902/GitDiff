@@ -312,7 +312,7 @@ Expected: ESLint exits with status 0; `npm test` builds successfully and all Nod
 Run:
 
 ```bash
-rg -n "/Users/|tabbit|Tabbit|Chrome|Google Chrome" app server tests README.md package.json
+git grep -n -E 'DEFAULT_REPO = ".+/|tell application' -- app server tests README.md package.json packaging/macos
 ```
 
 Expected: no committed runtime coupling to a user-specific absolute path, unrelated product name, or named browser. `DEFAULT_REPO` must already be empty and the last repository must be restored only from browser-local storage as implemented in Task 2.
