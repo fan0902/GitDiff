@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { markChangeBlocks, wrapChangeIndex, type ChangeMarkedRow } from "./change-navigation";
 
 const API_URL = process.env.NEXT_PUBLIC_GIT_DIFF_API_URL || "http://127.0.0.1:3101";
 const DEFAULT_REPO = "";
@@ -48,6 +50,8 @@ type SplitRow = {
   right?: DiffRow;
   content?: string;
 };
+
+type NavigableSplitRow = ChangeMarkedRow<SplitRow>;
 
 type ReviewMode = "full" | "compact";
 
@@ -355,6 +359,8 @@ export function DiffViewer() {
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentChangeIndex, setCurrentChangeIndex] = useState(0);
+  const sourceCompareRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const lastRepository = localStorage.getItem("branch-review:last-repo");
@@ -370,6 +376,28 @@ export function DiffViewer() {
     const parsed = toSplitRows(rows);
     return mode === "full" ? parsed.filter((row) => row.kind === "code") : parsed;
   }, [mode, rows]);
+  const { rows: navigableRows, count: changeCount } = useMemo(() => markChangeBlocks(splitRows), [splitRows]);
+
+  const scrollToChange = useCallback((index: number) => {
+    const anchor = sourceCompareRef.current?.querySelector<HTMLElement>(`[data-change-index="${index}"]`);
+    const container = sourceCompareRef.current;
+    if (!container || !anchor) return;
+    const header = container.querySelector<HTMLElement>(".source-columns-header");
+    const top = container.scrollTop
+      + anchor.getBoundingClientRect().top
+      - container.getBoundingClientRect().top
+      - (header?.offsetHeight || 0)
+      - 12;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    container.scrollTo({ top: Math.max(0, top), behavior: reducedMotion ? "auto" : "smooth" });
+  }, []);
+
+  useEffect(() => {
+    setCurrentChangeIndex(0);
+    if (changeCount === 0) return;
+    const frame = window.requestAnimationFrame(() => scrollToChange(0));
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeDiff.diff, changeCount, mode, scrollToChange, selectedPath]);
 
   const filteredFiles = useMemo(() => {
     if (!comparison) return [];
@@ -418,6 +446,7 @@ export function DiffViewer() {
       setSelectedPath("");
       setFullDiff(EMPTY_DIFF);
       setCompactDiff(EMPTY_DIFF);
+      setCurrentChangeIndex(0);
       setReadFiles(new Set());
       localStorage.setItem("branch-review:last-repo", data.repoPath);
       await runComparison(data.repoPath, defaults.base, defaults.target);
@@ -444,6 +473,7 @@ export function DiffViewer() {
       setSelectedPath(firstVisibleFile?.path || "");
       setFullDiff(EMPTY_DIFF);
       setCompactDiff(EMPTY_DIFF);
+      setCurrentChangeIndex(0);
       if (firstVisibleFile) await loadFileDiff(firstVisibleFile, path, baseRef, targetRef);
     } catch (value) {
       setError(value instanceof Error ? value.message : "比较分支失败");
@@ -458,6 +488,7 @@ export function DiffViewer() {
     setLoadingDiff(true);
     setFullDiff(EMPTY_DIFF);
     setCompactDiff(EMPTY_DIFF);
+    setCurrentChangeIndex(0);
     try {
       const payload = {
         repoPath: path,
@@ -496,6 +527,16 @@ export function DiffViewer() {
       return next;
     });
   }
+
+  function navigateChanges(direction: -1 | 1) {
+    if (changeCount === 0) return;
+    const nextIndex = wrapChangeIndex(currentChangeIndex, direction, changeCount);
+    setCurrentChangeIndex(nextIndex);
+    scrollToChange(nextIndex);
+  }
+
+  const previousChangeIndex = wrapChangeIndex(currentChangeIndex, -1, changeCount);
+  const nextChangeIndex = wrapChangeIndex(currentChangeIndex, 1, changeCount);
 
   return (
     <main className="app-shell">
@@ -622,13 +663,22 @@ export function DiffViewer() {
                     ) : !activeDiff.diff ? (
                       <div className="diff-message"><strong>没有可显示的文本差异</strong><span>文件可能只有模式或元数据发生变化。</span></div>
                     ) : (
-                      <div className={`source-compare ${mode === "full" ? "full-source-diff" : "compact-source-diff"}`}>
+                      <div ref={sourceCompareRef} className={`source-compare ${mode === "full" ? "full-source-diff" : "compact-source-diff"}`}>
                         <div className="source-columns-header">
                           <div><span>基准源码</span><code title={comparison?.base}>{comparison?.base}</code></div>
-                          <div><span>目标源码</span><code title={comparison?.target}>{comparison?.target}</code></div>
+                          <div className="target-source-header">
+                            <div className="source-column-title"><span>目标源码</span><code title={comparison?.target}>{comparison?.target}</code></div>
+                            {changeCount > 0 && (
+                              <nav className="change-navigation" aria-label="代码变更导航">
+                                <output aria-live="polite">变更 {currentChangeIndex + 1} / {changeCount}</output>
+                                <button type="button" onClick={() => navigateChanges(-1)} aria-label={`上一处变更，前往第 ${previousChangeIndex + 1} 处，共 ${changeCount} 处`}>上一处</button>
+                                <button type="button" onClick={() => navigateChanges(1)} aria-label={`下一处变更，前往第 ${nextChangeIndex + 1} 处，共 ${changeCount} 处`}>下一处</button>
+                              </nav>
+                            )}
+                          </div>
                         </div>
                         <div className="split-diff" role="table" aria-label={`${selectedFile.path} ${mode === "full" ? "完整源码对照" : "紧凑差异"}`}>
-                          {splitRows.map((row, index) => <SplitLine key={index} row={row} />)}
+                          {navigableRows.map((row, index) => <SplitLine key={index} row={row} currentChangeIndex={currentChangeIndex} />)}
                         </div>
                       </div>
                     )}
@@ -645,12 +695,18 @@ export function DiffViewer() {
   );
 }
 
-function SplitLine({ row }: { row: SplitRow }) {
+function SplitLine({ row, currentChangeIndex }: { row: NavigableSplitRow; currentChangeIndex: number }) {
   if (row.kind === "hunk" || row.kind === "meta") {
     return <div className={`split-meta ${row.kind}`}><code>{row.content}</code></div>;
   }
+  const classes = [
+    "split-line",
+    row.changeIndex === currentChangeIndex ? "current-change" : "",
+    row.changeStart ? "change-start" : "",
+    row.changeEnd ? "change-end" : "",
+  ].filter(Boolean).join(" ");
   return (
-    <div className="split-line">
+    <div className={classes} data-change-index={row.changeStart ? row.changeIndex : undefined}>
       <SplitCell row={row.left} side="left" />
       <SplitCell row={row.right} side="right" />
     </div>

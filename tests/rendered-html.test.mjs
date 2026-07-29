@@ -57,3 +57,14 @@ test("the diff viewer exposes full-source and compact review modes", async () =>
   assert.doesNotMatch(source, />左右对比</);
   assert.doesNotMatch(source, /\/Users\//);
 });
+
+test("the diff viewer exposes scoped change-block navigation", async () => {
+  const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /aria-label="代码变更导航"/);
+  assert.match(source, /上一处/);
+  assert.match(source, /下一处/);
+  assert.match(source, /data-change-index/);
+  assert.match(source, /sourceCompareRef\.current\?\.querySelector/);
+  assert.doesNotMatch(source, /document\.querySelector/);
+});
