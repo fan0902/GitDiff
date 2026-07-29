@@ -91,4 +91,3 @@ curl --fail http://127.0.0.1:9002/
 ```
 
 预期：两个接口均成功；安装目录中的 `DiffViewer.tsx` 包含 `title={branch.name}`，页面服务继续监听 9002。
-
