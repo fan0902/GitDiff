@@ -94,6 +94,16 @@ test("macOS launcher derives paths and delegates browser handling", async () => 
   assert.doesNotMatch(source, /\/Users\//);
 });
 
+test("macOS launcher warms the page once without short-timeout request piling", async () => {
+  const source = await readFile(new URL("../packaging/macos/GitDiff.applescript", import.meta.url), "utf8");
+
+  assert.match(source, /on apiIsHealthy\(\)/);
+  assert.match(source, /on warmPage\(\)/);
+  assert.match(source, /--max-time 60/);
+  assert.match(source, /repeat with attempt[\s\S]*apiIsHealthy\(\)[\s\S]*webIsListening\(\)[\s\S]*end repeat/);
+  assert.doesNotMatch(source, /--max-time 1[^\n]*pageURL/);
+});
+
 test("local runtime uses the numeric loopback address", async () => {
   const [devScript, launcher, browserHelper] = await Promise.all([
     readFile(new URL("../scripts/dev.mjs", import.meta.url), "utf8"),

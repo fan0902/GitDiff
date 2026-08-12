@@ -38,9 +38,11 @@ end preparePaths
 
 on startGitDiff()
 	my preparePaths()
-	if my serviceIsHealthy() then
-		my showOrRefreshPage()
-		return
+	if (my apiIsHealthy()) and (my webIsListening()) then
+		if my warmPage() then
+			my showOrRefreshPage()
+			return
+		end if
 	end if
 
 	my stopStaleService()
@@ -49,16 +51,21 @@ on startGitDiff()
 	do shell script launchCommand
 	set serviceStartedByApp to true
 
+	set serviceReady to false
 	repeat with attempt from 1 to 60
 		delay 0.5
-		if my serviceIsHealthy() then
-			my showOrRefreshPage()
-			display notification "本地 Git 差异阅读器已启动" with title "GitDiff"
-			return
+		if (my apiIsHealthy()) and (my webIsListening()) then
+			set serviceReady to true
+			exit repeat
 		end if
 	end repeat
+	if serviceReady and (my warmPage()) then
+		my showOrRefreshPage()
+		display notification "本地 Git 差异阅读器已启动" with title "GitDiff"
+		return
+	end if
 
-	display alert "GitDiff 启动失败" message "本地服务未能在 30 秒内启动。可以打开日志查看具体原因。" buttons {"关闭", "查看日志"} default button "查看日志" as critical
+	display alert "GitDiff 启动失败" message "本地服务未能完成启动或页面预热。可以打开日志查看具体原因。" buttons {"关闭", "查看日志"} default button "查看日志" as critical
 	if button returned of result is "查看日志" then do shell script "/usr/bin/open " & quoted form of logPath
 end startGitDiff
 
@@ -72,14 +79,32 @@ on showOrRefreshPage()
 	end try
 end showOrRefreshPage
 
-on serviceIsHealthy()
+on apiIsHealthy()
 	try
-		do shell script "/usr/bin/curl --silent --fail --max-time 1 " & quoted form of healthURL & " > /dev/null && /usr/bin/curl --silent --fail --max-time 1 " & quoted form of pageURL & " > /dev/null"
+		do shell script "/usr/bin/curl --silent --fail --max-time 1 " & quoted form of healthURL & " > /dev/null"
 		return true
 	on error
 		return false
 	end try
-end serviceIsHealthy
+end apiIsHealthy
+
+on webIsListening()
+	try
+		do shell script "/usr/bin/nc -z 127.0.0.1 9002"
+		return true
+	on error
+		return false
+	end try
+end webIsListening
+
+on warmPage()
+	try
+		do shell script "/usr/bin/curl --silent --fail --max-time 60 " & quoted form of pageURL & " > /dev/null"
+		return true
+	on error
+		return false
+	end try
+end warmPage
 
 on stopStaleService()
 	try
