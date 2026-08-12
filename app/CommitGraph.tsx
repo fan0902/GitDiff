@@ -16,6 +16,7 @@ export type GraphNode = {
   scope: GraphScope;
   kind: GraphKind;
   annotation: string;
+  refs: string[];
   collapsedCount?: number;
   nextSha?: string;
 };
@@ -223,10 +224,12 @@ export function CommitGraph({ data, focusInput, focusError, loading, onFocusInpu
       )}
 
       <div className="graph-scroll" tabIndex={0} aria-label="横向提交关系图，可左右滚动">
-        <div className="graph-canvas" style={{ width, minWidth: width } as CSSProperties}>
-          <span className="graph-lane lane-base">基准分支 · {data.base.name}</span>
+        <div className="graph-lane-overlay" aria-label="提交泳道">
+          <span className="graph-lane lane-base">基准 · {data.base.name}</span>
           {!data.disconnected && <span className="graph-lane lane-common">共同历史</span>}
-          <span className="graph-lane lane-target">目标分支 · {data.target.name}</span>
+          <span className="graph-lane lane-target">目标 · {data.target.name}</span>
+        </div>
+        <div className="graph-canvas" style={{ width, minWidth: width } as CSSProperties}>
           {data.disconnected && <div className="graph-disconnected"><i /><span>历史断开</span><i /></div>}
           {edges.map((edge) => <Edge key={edge.key} from={edge.from} to={edge.to} secondary={edge.secondary} />)}
           {positioned.map(({ node, x, y }) => (
@@ -239,7 +242,22 @@ export function CommitGraph({ data, focusInput, focusError, loading, onFocusInpu
               aria-label={`${node.shortSha}，${node.subject}${node.annotation ? `，${node.annotation}` : ""}`}
               onClick={() => openDetails(node)}
             >
-              <span className="node-line"><code>{node.shortSha}</code>{node.parents.length > 1 && <i>{node.parents.length}P</i>}</span>
+              <span className="node-line">
+                <code>{node.shortSha}</code>
+                <span className="node-markers">
+                  {node.refs.length > 0 && (
+                    <span
+                      className="node-ref-badge"
+                      title={node.refs.join("、")}
+                      aria-label={`分支：${node.refs.join("、")}`}
+                    >
+                      <b>{node.refs[0]}</b>
+                      {node.refs.slice(1).length > 0 && <em>+{node.refs.slice(1).length}</em>}
+                    </span>
+                  )}
+                  {node.parents.length > 1 && <i>{node.parents.length}P</i>}
+                </span>
+              </span>
               <strong>{node.subject}</strong>
               <small>{node.annotation || scopeLabel(node.scope)}</small>
             </button>
@@ -265,6 +283,12 @@ export function CommitGraph({ data, focusInput, focusError, loading, onFocusInpu
             <strong>{selectedNode.subject}</strong>
             {selectedNode.annotation && <p>{selectedNode.annotation}</p>}
           </section>
+          {selectedNode.refs.length > 0 && (
+            <div className="branch-ref-list">
+              <span>指向此提交的分支 · {selectedNode.refs.length}</span>
+              <div>{selectedNode.refs.map((ref) => <code key={ref}>{ref}</code>)}</div>
+            </div>
+          )}
           <dl>
             <div><dt>所属范围</dt><dd>{scopeLabel(selectedNode.scope)}</dd></div>
             <div><dt>作者</dt><dd>{selectedNode.author || "—"}</dd></div>

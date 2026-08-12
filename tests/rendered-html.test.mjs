@@ -36,6 +36,20 @@ test("the commit graph view exposes commit location controls", async () => {
   assert.match(source, /role="dialog"/);
 });
 
+test("commit graph shows branch refs and sticky lane labels", async () => {
+  const [component, styles] = await Promise.all([
+    readFile(new URL("../app/CommitGraph.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(component, /refs: string\[\]/);
+  assert.match(component, /className="node-ref-badge"/);
+  assert.match(component, /node\.refs\.slice\(1\)\.length/);
+  assert.match(component, /指向此提交的分支/);
+  assert.match(component, /className="graph-lane-overlay"/);
+  assert.match(styles, /\.graph-lane-overlay[^}]*position:\s*sticky/);
+});
+
 test("branch actions refresh the active view directly", async () => {
   const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
   assert.match(source, /function refreshActiveView\(\)/);
