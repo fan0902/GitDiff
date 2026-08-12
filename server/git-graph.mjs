@@ -32,6 +32,47 @@ async function readRange(repoPath, args, scope) {
   return Promise.all(shas.map((sha) => readCommit(repoPath, sha, scope)));
 }
 
+async function readBranchRefs(repoPath, base, target) {
+  const format = "%(objectname)\t%(refname)\t%(refname:short)\t%(symref)";
+  const output = await git(repoPath, [
+    "for-each-ref",
+    `--format=${format}`,
+    "refs/heads",
+    "refs/remotes",
+  ]);
+  const preferred = new Map([...new Set([base, target])].map((name, index) => [name, index]));
+  const refs = output
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [sha, fullName, name, symref] = line.split("\t");
+      return { sha, fullName, name, symref };
+    })
+    .filter((ref) => !ref.symref && !ref.name.endsWith("/HEAD"));
+
+  refs.sort((left, right) => {
+    const leftPreferred = preferred.get(left.name);
+    const rightPreferred = preferred.get(right.name);
+    if (leftPreferred !== undefined || rightPreferred !== undefined) {
+      if (leftPreferred === undefined) return 1;
+      if (rightPreferred === undefined) return -1;
+      if (leftPreferred !== rightPreferred) return leftPreferred - rightPreferred;
+    }
+    const leftRemote = left.fullName.startsWith("refs/remotes/");
+    const rightRemote = right.fullName.startsWith("refs/remotes/");
+    return Number(leftRemote) - Number(rightRemote) || left.name.localeCompare(right.name);
+  });
+
+  const refsBySha = new Map();
+  for (const ref of refs) {
+    const names = refsBySha.get(ref.sha) ?? [];
+    if (!names.includes(ref.name)) names.push(ref.name);
+    refsBySha.set(ref.sha, names);
+  }
+  return refsBySha;
+}
+
 function collapse(nodes, scope) {
   if (nodes.length <= UNIQUE_LIMIT) return nodes;
   const hidden = nodes.slice(0, nodes.length - UNIQUE_LIMIT);
@@ -134,9 +175,10 @@ export async function buildCommitGraph(repoPath, base, target, focusCommit) {
     resolveCommit(repoPath, base),
     resolveCommit(repoPath, target),
   ]);
-  const [mergeBase, focusSha] = await Promise.all([
+  const [mergeBase, focusSha, refsBySha] = await Promise.all([
     mergeBaseFor(repoPath, baseSha, targetSha),
     focusCommit ? resolveCommit(repoPath, focusCommit, "提交") : undefined,
+    readBranchRefs(repoPath, base, target),
   ]);
   const focusRelation = focusSha
     ? await relationForFocus(repoPath, focusSha, baseSha, targetSha)
@@ -178,12 +220,14 @@ export async function buildCommitGraph(repoPath, base, target, focusCommit) {
         ...(await readCommit(repoPath, focusSha, "unrelated")),
         kind: "focus",
         annotation: focusAnnotation("unrelated"),
+        refs: refsBySha.get(focusSha) ?? [],
       }
     : undefined;
   const visibleBase = focusRelation === "base" ? baseNodes : collapse(baseNodes, "base");
   const visibleTarget = focusRelation === "target" ? targetNodes : collapse(targetNodes, "target");
   const nodes = [...commonNodes, ...visibleBase, ...visibleTarget]
-    .map((node) => decorate(node, { baseSha, targetSha, mergeBase, focusSha }));
+    .map((node) => decorate(node, { baseSha, targetSha, mergeBase, focusSha }))
+    .map((node) => ({ ...node, refs: node.sha ? refsBySha.get(node.sha) ?? [] : [] }));
   return {
     base: { name: base, sha: baseSha },
     target: { name: target, sha: targetSha },

@@ -80,10 +80,25 @@ test("classifies a focus commit without discarding the current graph", async (t)
     if (relation === "unrelated") {
       assert.equal(graph.focus.node.scope, "unrelated");
       assert.equal(graph.nodes.some((node) => node.sha === sha), false);
+      assert.deepEqual(graph.focus.node.refs, ["detached-history"]);
     } else {
       assert.equal(graph.nodes.find((node) => node.sha === sha)?.kind, "focus");
     }
   }
+});
+
+test("attaches local and remote branch refs to the commit they point to", async (t) => {
+  const { repo, root } = await fixture(t);
+  await run(repo, "branch", "master", root);
+  await run(repo, "branch", "feature", root);
+  await run(repo, "update-ref", "refs/remotes/origin/master", root);
+  await run(repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/master");
+
+  const graph = await buildCommitGraph(repo, "master", "feature");
+  const rootNode = graph.nodes.find((node) => node.sha === root);
+
+  assert.deepEqual(rootNode.refs, ["master", "feature", "main", "origin/master"]);
+  assert.equal(rootNode.refs.includes("origin/HEAD"), false);
 });
 
 test("reports an invalid focus SHA separately", async (t) => {
