@@ -1,11 +1,11 @@
 "use client";
 
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-
+import { CommitGraph, CommitGraphData } from "./CommitGraph";
+import { orderDefaultBranches } from "./branch-order";
 import { markChangeBlocks, wrapChangeIndex, type ChangeMarkedRow } from "./change-navigation";
 
 const API_URL = process.env.NEXT_PUBLIC_GIT_DIFF_API_URL || "http://127.0.0.1:3101";
-const DEFAULT_REPO = "";
 
 type Branch = {
   name: string;
@@ -52,7 +52,6 @@ type SplitRow = {
 };
 
 type NavigableSplitRow = ChangeMarkedRow<SplitRow>;
-
 type ReviewMode = "full" | "compact";
 
 type DiffPayload = {
@@ -267,16 +266,15 @@ function BranchSelect({ label, value, branches, onChange }: { label: string; val
 function SearchableBranchSelect({ label, value, branches, onChange }: { label: string; value: string; branches: Branch[]; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const matches = useMemo(() => branches
-    .map((branch, index) => ({ branch, index, score: fuzzyBranchScore(branch.name, query) }))
-    .filter((entry): entry is { branch: Branch; index: number; score: number } => entry.score !== null)
-    .sort((left, right) => {
-      if (!query && left.branch.name === value) return -1;
-      if (!query && right.branch.name === value) return 1;
-      return left.score - right.score || left.index - right.index;
-    })
-    .slice(0, 80)
-    .map((entry) => entry.branch), [branches, query, value]);
+  const matches = useMemo(() => {
+    if (!query.trim()) return orderDefaultBranches(branches).slice(0, 80);
+    return branches
+      .map((branch, index) => ({ branch, index, score: fuzzyBranchScore(branch.name, query) }))
+      .filter((entry): entry is { branch: Branch; index: number; score: number } => entry.score !== null)
+      .sort((left, right) => left.score - right.score || left.index - right.index)
+      .slice(0, 80)
+      .map((entry) => entry.branch);
+  }, [branches, query]);
 
   function close() {
     setOpen(false);
@@ -323,6 +321,7 @@ function SearchableBranchSelect({ label, value, branches, onChange }: { label: s
                 aria-selected={branch.name === value}
                 className={branch.name === value ? "selected" : ""}
                 key={`${branch.type}-${branch.name}`}
+                title={branch.name}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectBranch(branch)}
               >
@@ -340,7 +339,9 @@ function SearchableBranchSelect({ label, value, branches, onChange }: { label: s
 }
 
 export function DiffViewer() {
-  const [repoInput, setRepoInput] = useState(DEFAULT_REPO);
+  const [repoInput, setRepoInput] = useState(() => (
+    typeof window === "undefined" ? "" : localStorage.getItem("branch-review:last-repo") || ""
+  ));
   const [repoPath, setRepoPath] = useState("");
   const [branches, setBranches] = useState<Branch[]>([]);
   const [base, setBase] = useState("");
@@ -359,15 +360,14 @@ export function DiffViewer() {
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeView, setActiveView] = useState<"files" | "graph">("files");
+  const [graph, setGraph] = useState<CommitGraphData | null>(null);
+  const [lastGoodGraph, setLastGoodGraph] = useState<CommitGraphData | null>(null);
+  const [focusInput, setFocusInput] = useState("");
+  const [focusError, setFocusError] = useState("");
+  const [loadingGraph, setLoadingGraph] = useState(false);
   const [currentChangeIndex, setCurrentChangeIndex] = useState(0);
   const sourceCompareRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const lastRepository = localStorage.getItem("branch-review:last-repo");
-    if (!lastRepository) return;
-    const frame = window.requestAnimationFrame(() => setRepoInput(lastRepository));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
 
   const selectedFile = comparison?.files.find((file) => file.path === selectedPath);
   const activeDiff = mode === "full" ? fullDiff : compactDiff;
@@ -450,6 +450,10 @@ export function DiffViewer() {
       setCompactDiff(EMPTY_DIFF);
       setCurrentChangeIndex(0);
       setReadFiles(new Set());
+      setGraph(null);
+      setLastGoodGraph(null);
+      setFocusInput("");
+      setFocusError("");
       localStorage.setItem("branch-review:last-repo", data.repoPath);
       await runComparison(data.repoPath, defaults.base, defaults.target);
     } catch (value) {
@@ -476,7 +480,12 @@ export function DiffViewer() {
       setFullDiff(EMPTY_DIFF);
       setCompactDiff(EMPTY_DIFF);
       setCurrentChangeIndex(0);
+      setGraph(null);
+      setLastGoodGraph(null);
+      setFocusInput("");
+      setFocusError("");
       if (firstVisibleFile) await loadFileDiff(firstVisibleFile, path, baseRef, targetRef);
+      if (activeView === "graph") await loadGraph("", path, baseRef, targetRef);
     } catch (value) {
       setError(value instanceof Error ? value.message : "比较分支失败");
     } finally {
@@ -512,12 +521,54 @@ export function DiffViewer() {
     }
   }
 
+  async function loadGraph(focusCommit = focusInput.trim(), path = repoPath, baseRef = base, targetRef = target) {
+    if (!path || !baseRef || !targetRef) return;
+    setLoadingGraph(true);
+    setFocusError("");
+    try {
+      const data = await post<CommitGraphData>("/api/graph", {
+        repoPath: path,
+        base: baseRef,
+        target: targetRef,
+        ...(focusCommit ? { focusCommit } : {}),
+      });
+      setGraph(data);
+      setLastGoodGraph(data);
+    } catch (value) {
+      const message = value instanceof Error ? value.message : "读取提交关系失败";
+      if (focusCommit) {
+        setFocusError(message);
+        setGraph((current) => current || lastGoodGraph);
+      } else {
+        setError(message);
+      }
+    } finally {
+      setLoadingGraph(false);
+    }
+  }
+
   function swapBranches() {
     const nextBase = target;
     const nextTarget = base;
     setBase(nextBase);
     setTarget(nextTarget);
-    void runComparison(repoPath, nextBase, nextTarget);
+    if (activeView === "graph") {
+      setFocusInput("");
+      setFocusError("");
+      void loadGraph("", repoPath, nextBase, nextTarget);
+    } else {
+      void runComparison(repoPath, nextBase, nextTarget);
+    }
+  }
+
+  function refreshActiveView() {
+    if (activeView === "graph") {
+      setFocusInput("");
+      setFocusError("");
+      void loadGraph("");
+    } else {
+      void runComparison();
+    }
   }
 
   function toggleRead() {
@@ -568,15 +619,32 @@ export function DiffViewer() {
           <BranchSelect label="基准分支" value={base} branches={branches} onChange={setBase} />
           <button className="swap-button" onClick={swapBranches} disabled={!repoPath} aria-label="交换分支">{icons.swap}</button>
           <SearchableBranchSelect label="目标分支" value={target} branches={branches} onChange={setTarget} />
-          <button className="compare-button" onClick={() => void runComparison()} disabled={!repoPath || loadingCompare}>
-            {loadingCompare ? "比较中…" : <>{icons.refresh} 比较差异</>}
+          <button className="compare-button" onClick={refreshActiveView} disabled={!repoPath || (activeView === "graph" ? loadingGraph : loadingCompare)}>
+            {activeView === "graph"
+              ? loadingGraph ? "读取中…" : <>{icons.refresh} 更新关系</>
+              : loadingCompare ? "比较中…" : <>{icons.refresh} 比较差异</>}
           </button>
         </div>
       </section>
 
       {error && <div className="error-banner"><strong>读取失败</strong><span>{error}</span><button onClick={() => setError("")}>×</button></div>}
 
-      <div className="workspace">
+      <nav className="primary-view-tabs" aria-label="审阅视图">
+        <button className={activeView === "files" ? "active" : ""} onClick={() => setActiveView("files")}>文件差异</button>
+        <button
+          className={activeView === "graph" ? "active" : ""}
+          disabled={!repoPath}
+          onClick={() => {
+            setActiveView("graph");
+            setSidebarOpen(false);
+            if (!graph) void loadGraph("");
+          }}
+        >
+          提交关系
+        </button>
+      </nav>
+
+      {activeView === "files" && <div className="workspace">
         {sidebarOpen && <button className="sidebar-scrim" onClick={() => setSidebarOpen(false)} aria-label="关闭文件目录" />}
         <aside className={`file-sidebar ${sidebarOpen ? "open" : ""}`}>
           <div className="sidebar-heading">
@@ -692,7 +760,21 @@ export function DiffViewer() {
             </>
           )}
         </article>
-      </div>
+      </div>}
+
+      {activeView === "graph" && graph && (
+        <CommitGraph
+          data={graph}
+          focusInput={focusInput}
+          focusError={focusError}
+          loading={loadingGraph}
+          onFocusInput={setFocusInput}
+          onLocate={() => void loadGraph()}
+        />
+      )}
+      {activeView === "graph" && !graph && loadingGraph && (
+        <section className="graph-loading" aria-label="正在读取提交关系"><span /><span /><span /></section>
+      )}
     </main>
   );
 }

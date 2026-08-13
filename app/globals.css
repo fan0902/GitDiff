@@ -272,3 +272,103 @@ code { font-family: var(--font-geist-mono), "SFMono-Regular", Consolas, monospac
   .welcome-card { min-height: 420px; margin: 20px auto; padding: 35px 27px; }
   .welcome-card h1 { font-size: 34px; }
 }
+
+.primary-view-tabs { height: 44px; padding: 5px 28px; display: flex; align-items: center; gap: 4px; position: sticky; z-index: 24; top: 154px; background: rgba(245,240,230,.96); border-bottom: 1px solid var(--line); }
+.primary-view-tabs button { height: 32px; padding: 0 14px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 650; cursor: pointer; }
+.primary-view-tabs button.active { background: var(--card); color: var(--accent); box-shadow: 0 2px 7px rgba(68,55,35,.09); }
+.primary-view-tabs button:disabled { opacity: .42; cursor: default; }
+.workspace { min-height: calc(100vh - 198px); }
+.file-sidebar { height: calc(100vh - 198px); top: 198px; }
+
+.commit-graph-view { min-height: calc(100vh - 198px); padding: 30px clamp(24px,4vw,56px) 60px; }
+.graph-heading { max-width: 1180px; margin: 0 auto 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; }
+.graph-heading > div:first-child > span { color: var(--accent); font-size: 10px; font-weight: 750; letter-spacing: .16em; }
+.graph-heading h1 { margin: 7px 0 5px; font: 500 31px Georgia, "Songti SC", serif; }
+.graph-heading p { margin: 0; color: var(--muted); font-size: 12px; }
+.graph-controls { width: min(480px,46vw); display: flex; flex-direction: column; gap: 5px; }
+.graph-controls > label { color: var(--muted); font-size: 10px; letter-spacing: .05em; }
+.graph-controls > div { display: flex; gap: 7px; }
+.graph-controls input { min-width: 0; flex: 1; height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; outline: 0; background: var(--card); color: var(--ink); font: 600 12px var(--font-geist-mono); }
+.graph-controls input:focus { border-color: #bbaa91; box-shadow: 0 0 0 3px rgba(156,77,54,.08); }
+.graph-controls input[aria-invalid="true"] { border-color: var(--red); }
+.graph-controls button { height: 40px; padding: 0 16px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 650; cursor: pointer; }
+.graph-controls button:disabled { opacity: .55; cursor: default; }
+.graph-input-error { color: var(--red); font-size: 10px; }
+.graph-summary { max-width: 1180px; margin: 0 auto 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+.graph-summary span { padding: 6px 9px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,253,249,.65); }
+.graph-summary b { color: var(--ink); }
+.graph-summary code { color: var(--accent); }
+.graph-summary .warning { border-color: #d5b66e; background: #fff8df; color: #7b5b18; }
+.unrelated-focus { max-width: 1180px; margin: 0 auto 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid #d5b66e; border-radius: 10px; background: #fff8df; }
+.unrelated-focus div { display: flex; flex-direction: column; gap: 3px; }
+.unrelated-focus strong { color: #6c4c12; font-size: 12px; }
+.unrelated-focus span { color: #8a713f; font-size: 10px; }
+.unrelated-focus button { padding: 7px 10px; border: 1px solid #cda950; border-radius: 7px; background: #fffdf5; color: #6c4c12; font: 600 10px var(--font-geist-mono); cursor: pointer; }
+.graph-scroll { max-width: 1180px; margin: 0 auto; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: var(--shadow); outline: 0; }
+.graph-scroll:focus-visible { box-shadow: 0 0 0 3px rgba(55,105,122,.25), var(--shadow); }
+.graph-canvas { min-height: 352px; position: relative; background: linear-gradient(180deg,transparent 0 94px,rgba(221,213,199,.22) 94px 95px,transparent 95px 190px,rgba(221,213,199,.22) 190px 191px,transparent 191px 286px,rgba(221,213,199,.22) 286px 287px,transparent 287px); }
+.graph-lane-overlay { width: 0; height: 0; position: sticky; z-index: 5; left: 0; pointer-events: none; }
+.graph-lane { max-width: 92px; padding: 4px 7px; position: absolute; left: 12px; overflow: hidden; border: 1px solid rgba(221,213,199,.82); border-radius: 6px; background: rgba(255,253,249,.94); box-shadow: 0 2px 7px rgba(68,55,35,.06); color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .02em; text-overflow: ellipsis; white-space: nowrap; }
+.lane-base { top: 63px; }.lane-common { top: 159px; }.lane-target { top: 255px; }
+.graph-edge { height: 2px; position: absolute; z-index: 1; transform-origin: 0 50%; background: #b8ad9c; pointer-events: none; }
+.graph-edge.secondary { height: 1px; background: repeating-linear-gradient(90deg,#9e8d78 0 6px,transparent 6px 10px); }
+.commit-node { width: 148px; min-height: 64px; padding: 8px 10px; position: absolute; z-index: 2; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); text-align: left; cursor: pointer; box-shadow: 0 2px 7px rgba(68,55,35,.07); }
+.commit-node:hover { border-color: #b9ad9d; transform: translateY(-1px); }
+.commit-node:focus-visible { outline: 3px solid rgba(55,105,122,.35); outline-offset: 3px; }
+.node-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.node-line code { color: var(--accent); font-size: 9px; font-weight: 700; }
+.node-line i { padding: 2px 4px; border-radius: 4px; background: #eee7f4; color: #725689; font: 700 8px var(--font-geist-mono); }
+.node-markers { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
+.node-ref-badge { min-width: 0; max-width: 68px; padding: 2px 4px; display: flex; align-items: center; gap: 3px; overflow: hidden; border: 1px solid #b9cbd0; border-radius: 4px; background: var(--blue-soft); color: var(--blue); font: 700 8px var(--font-geist-mono); }
+.node-ref-badge b { min-width: 0; overflow: hidden; font: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.node-ref-badge em { flex: 0 0 auto; font: inherit; }
+.commit-node strong, .commit-node small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commit-node strong { margin-top: 4px; font-size: 11px; }
+.commit-node small { margin-top: 4px; color: var(--muted); font-size: 9px; }
+.commit-node.head { border-color: #b99b6e; background: #fffaf1; }
+.commit-node.merge-base { border: 2px solid var(--accent); background: #fff8f4; }
+.commit-node.focus { border: 2px solid var(--blue); background: #f7fbfc; box-shadow: 0 0 0 4px var(--blue-soft); }
+.commit-node.merge { border-color: #9276a5; background: #faf7fc; }
+.commit-node.collapsed { border-style: dashed; background: #faf7f0; }
+.commit-node.scope-base small::before { content: "基准 · "; }.commit-node.scope-target small::before { content: "目标 · "; }
+.graph-disconnected { width: 150px; position: absolute; z-index: 4; top: 164px; left: 50%; display: flex; align-items: center; gap: 7px; transform: translateX(-50%); color: var(--red); font-size: 9px; font-weight: 700; }
+.graph-disconnected i { flex: 1; border-top: 2px dashed #d9aaa3; }
+.graph-legend { max-width: 1180px; margin: 12px auto 0; display: flex; flex-wrap: wrap; align-items: center; gap: 15px; color: var(--muted); font-size: 10px; }
+.graph-legend span { display: flex; align-items: center; gap: 5px; }
+.graph-legend i { width: 9px; height: 9px; display: inline-block; border: 1px solid var(--line); border-radius: 3px; background: var(--card); }
+.graph-legend .legend-merge-base { border: 2px solid var(--accent); }.graph-legend .legend-focus { border: 2px solid var(--blue); }.graph-legend .legend-merge { border-color: #9276a5; background: #faf7fc; }
+.commit-detail { width: min(390px,calc(100vw - 32px)); height: 100vh; padding: 24px; position: fixed; z-index: 95; top: 0; right: 0; overflow-y: auto; border-left: 1px solid var(--line); background: var(--card); box-shadow: -18px 0 42px rgba(41,39,34,.16); }
+.commit-detail > header { display: flex; align-items: flex-start; justify-content: space-between; }
+.commit-detail > header span { color: var(--accent); font-size: 9px; font-weight: 750; letter-spacing: .14em; }
+.commit-detail h2 { margin: 6px 0 0; font: 500 25px Georgia,"Songti SC",serif; }
+.commit-detail > header button { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: transparent; font-size: 20px; cursor: pointer; }
+.detail-identity { margin: 26px 0 20px; padding: 17px; border: 1px solid var(--line); border-radius: 11px; background: #faf7f0; }
+.detail-identity code { color: var(--accent); font-size: 11px; }.detail-identity strong { margin-top: 8px; display: block; font-size: 15px; line-height: 1.5; }.detail-identity p { margin: 9px 0 0; color: var(--blue); font-size: 11px; line-height: 1.5; }
+.branch-ref-list { margin: 0 0 20px; display: flex; flex-direction: column; gap: 8px; }
+.branch-ref-list > span { color: var(--muted); font-size: 10px; }
+.branch-ref-list > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.branch-ref-list code { max-width: 100%; padding: 5px 7px; overflow: hidden; border: 1px solid #b9cbd0; border-radius: 6px; background: var(--blue-soft); color: var(--blue); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.commit-detail dl { margin: 0; }.commit-detail dl div { padding: 11px 0; display: grid; grid-template-columns: 90px minmax(0,1fr); gap: 12px; border-bottom: 1px solid #eee7dc; }.commit-detail dt { color: var(--muted); font-size: 10px; }.commit-detail dd { margin: 0; font-size: 11px; line-height: 1.5; }
+.full-sha, .parent-list { margin-top: 20px; display: flex; flex-direction: column; gap: 7px; }.full-sha span, .parent-list > span { color: var(--muted); font-size: 10px; }.full-sha code, .parent-list code { overflow-wrap: anywhere; color: var(--blue); font-size: 10px; line-height: 1.5; }.parent-list small { color: var(--faint); font-size: 10px; }
+.copy-sha { width: 100%; height: 40px; margin-top: 24px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 650; cursor: pointer; }
+.graph-loading { max-width: 900px; min-height: 380px; margin: 42px auto; padding: 60px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
+.graph-loading span { height: 54px; margin: 24px 0; display: block; border-radius: 9px; background: linear-gradient(90deg,#eee8de 20%,#faf7f0 45%,#eee8de 70%); background-size: 300% 100%; animation: shimmer 1.4s infinite; }
+
+@media (max-width: 850px) {
+  .primary-view-tabs { position: static; padding-inline: 18px; }
+  .workspace { min-height: calc(100vh - 44px); }
+  .file-sidebar { top: 0; height: 100vh; }
+  .commit-graph-view { min-height: calc(100vh - 44px); padding: 22px 18px 50px; }
+  .graph-heading { align-items: stretch; flex-direction: column; gap: 18px; }
+  .graph-controls { width: 100%; }
+  .unrelated-focus { align-items: stretch; flex-direction: column; gap: 10px; }
+  .commit-detail { width: 100%; height: auto; max-height: 78vh; top: auto; bottom: 0; border-top: 1px solid var(--line); border-left: 0; }
+}
+
+@media (max-width: 560px) {
+  .graph-heading h1 { font-size: 27px; }
+  .graph-controls > div { align-items: stretch; flex-direction: column; }
+  .graph-controls button { width: 100%; }
+  .graph-summary { align-items: stretch; flex-direction: column; }
+  .graph-summary span { border-radius: 7px; }
+}

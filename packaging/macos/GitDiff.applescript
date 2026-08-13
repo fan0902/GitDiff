@@ -1,19 +1,20 @@
 property serviceStartedByApp : false
-property appSupportPath : ""
+property supportPath : ""
 property sitePath : ""
 property pidPath : ""
 property logPath : ""
-property pageURL : "http://localhost:9002/"
-property pageOrigin : "http://localhost:9002"
+property browserHelperPath : ""
+property pageURL : "http://127.0.0.1:9002/"
+property pageOrigin : "http://127.0.0.1:9002"
 property healthURL : "http://127.0.0.1:3101/health"
 
 on run
-	my initializePaths()
+	my preparePaths()
 	my startGitDiff()
 end run
 
 on reopen
-	my initializePaths()
+	my preparePaths()
 	my startGitDiff()
 end reopen
 
@@ -22,54 +23,88 @@ on idle
 end idle
 
 on quit
+	my preparePaths()
 	if serviceStartedByApp then my stopGitDiff()
 	continue quit
 end quit
 
+on preparePaths()
+	set supportPath to (POSIX path of (path to application support from user domain)) & "GitDiff"
+	set sitePath to supportPath & "/site"
+	set pidPath to supportPath & "/GitDiff.pid"
+	set logPath to supportPath & "/GitDiff.log"
+	set browserHelperPath to sitePath & "/packaging/macos/open-gitdiff.jxa"
+end preparePaths
+
 on startGitDiff()
-	if my serviceIsHealthy() then
-		my showOrRefreshPage()
-		return
+	my preparePaths()
+	if (my apiIsHealthy()) and (my webIsListening()) then
+		if my warmPage() then
+			my showOrRefreshPage()
+			return
+		end if
 	end if
 
 	my stopStaleService()
-	set launchCommand to "/bin/mkdir -p " & quoted form of appSupportPath & "; cd " & quoted form of sitePath & "; /usr/bin/nohup /usr/local/bin/node scripts/dev.mjs > " & quoted form of logPath & " 2>&1 < /dev/null & echo $! > " & quoted form of pidPath
+	set nodeSearchCommand to "NODE_BIN=''; for candidate in /opt/homebrew/bin/node /usr/local/bin/node /usr/bin/node; do if [ -x \"$candidate\" ]; then NODE_BIN=\"$candidate\"; break; fi; done; if [ -z \"$NODE_BIN\" ]; then NODE_BIN=\"$(command -v node || true)\"; fi; if [ -z \"$NODE_BIN\" ]; then echo 'Node.js 22 or newer is required' >&2; exit 127; fi; "
+	set launchCommand to nodeSearchCommand & "/bin/mkdir -p " & quoted form of supportPath & "; cd " & quoted form of sitePath & "; /usr/bin/nohup \"$NODE_BIN\" scripts/dev.mjs > " & quoted form of logPath & " 2>&1 < /dev/null & echo $! > " & quoted form of pidPath
 	do shell script launchCommand
 	set serviceStartedByApp to true
 
+	set serviceReady to false
 	repeat with attempt from 1 to 60
 		delay 0.5
-		if my serviceIsHealthy() then
-			my showOrRefreshPage()
-			display notification "本地 Git 差异阅读器已启动" with title "GitDiff"
-			return
+		if (my apiIsHealthy()) and (my webIsListening()) then
+			set serviceReady to true
+			exit repeat
 		end if
 	end repeat
+	if serviceReady and (my warmPage()) then
+		my showOrRefreshPage()
+		display notification "本地 Git 差异阅读器已启动" with title "GitDiff"
+		return
+	end if
 
-	display alert "GitDiff 启动失败" message "本地服务未能在 30 秒内启动。可以打开日志查看具体原因。" buttons {"关闭", "查看日志"} default button "查看日志" as critical
+	display alert "GitDiff 启动失败" message "本地服务未能完成启动或页面预热。可以打开日志查看具体原因。" buttons {"关闭", "查看日志"} default button "查看日志" as critical
 	if button returned of result is "查看日志" then do shell script "/usr/bin/open " & quoted form of logPath
 end startGitDiff
 
 on showOrRefreshPage()
-	open location pageURL
-	return false
+	try
+		do shell script "/usr/bin/osascript -l JavaScript " & quoted form of browserHelperPath & " " & quoted form of pageURL & " " & quoted form of pageOrigin
+		return true
+	on error
+		open location pageURL
+		return false
+	end try
 end showOrRefreshPage
 
-on initializePaths()
-	set appSupportPath to (POSIX path of (path to application support from user domain)) & "GitDiff"
-	set sitePath to appSupportPath & "/site"
-	set pidPath to appSupportPath & "/GitDiff.pid"
-	set logPath to appSupportPath & "/GitDiff.log"
-end initializePaths
-
-on serviceIsHealthy()
+on apiIsHealthy()
 	try
-		do shell script "/usr/bin/curl --silent --fail --max-time 1 " & quoted form of healthURL & " > /dev/null && /usr/bin/curl --silent --fail --max-time 1 " & quoted form of pageURL & " > /dev/null"
+		do shell script "/usr/bin/curl --silent --fail --max-time 1 " & quoted form of healthURL & " > /dev/null"
 		return true
 	on error
 		return false
 	end try
-end serviceIsHealthy
+end apiIsHealthy
+
+on webIsListening()
+	try
+		do shell script "/usr/bin/nc -z 127.0.0.1 9002"
+		return true
+	on error
+		return false
+	end try
+end webIsListening
+
+on warmPage()
+	try
+		do shell script "/usr/bin/curl --silent --fail --max-time 60 " & quoted form of pageURL & " > /dev/null"
+		return true
+	on error
+		return false
+	end try
+end warmPage
 
 on stopStaleService()
 	try
@@ -81,6 +116,7 @@ on stopStaleService()
 end stopStaleService
 
 on stopGitDiff()
+	my preparePaths()
 	try
 		set servicePid to do shell script "/bin/cat " & quoted form of pidPath & " | /usr/bin/tr -cd '0-9'"
 		if servicePid is not "" then do shell script "/bin/kill -TERM " & servicePid & " >/dev/null 2>&1 || true"

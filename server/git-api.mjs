@@ -1,9 +1,7 @@
-import { execFile } from "node:child_process";
-import { realpath, stat } from "node:fs/promises";
 import http from "node:http";
-import { promisify } from "node:util";
+import { buildCommitGraph } from "./git-graph.mjs";
+import { git, repository, resolveCommit } from "./git-runtime.mjs";
 
-const execFileAsync = promisify(execFile);
 const PORT = Number(process.env.GIT_DIFF_API_PORT || 3101);
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_DIFF_BYTES = 2 * 1024 * 1024;
@@ -42,36 +40,6 @@ async function body(request) {
     return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
   } catch {
     throw new Error("请求不是有效的 JSON");
-  }
-}
-
-async function git(repoPath, args, options = {}) {
-  const { stdout } = await execFileAsync("git", ["-C", repoPath, ...args], {
-    encoding: "utf8",
-    maxBuffer: options.maxBuffer ?? 8 * 1024 * 1024,
-    timeout: options.timeout ?? 15_000,
-  });
-  return stdout;
-}
-
-async function repository(inputPath) {
-  if (typeof inputPath !== "string" || !inputPath.trim()) {
-    throw new Error("请输入本地 Git 仓库路径");
-  }
-  const resolved = await realpath(inputPath.trim());
-  if (!(await stat(resolved)).isDirectory()) throw new Error("仓库路径必须是目录");
-  const root = (await git(resolved, ["rev-parse", "--show-toplevel"])).trim();
-  return realpath(root);
-}
-
-async function resolveCommit(repoPath, ref) {
-  if (typeof ref !== "string" || !ref || ref.length > 512 || /[\u0000-\u001f]/.test(ref)) {
-    throw new Error("分支名称无效");
-  }
-  try {
-    return (await git(repoPath, ["rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`])).trim();
-  } catch {
-    throw new Error(`找不到分支：${ref}`);
   }
 }
 
@@ -222,6 +190,14 @@ const server = http.createServer(async (request, response) => {
       const input = await body(request);
       const repoPath = await repository(input.repoPath);
       return json(request, response, 200, await compare(repoPath, input.base, input.target));
+    }
+    if (request.method === "POST" && url.pathname === "/api/graph") {
+      const input = await body(request);
+      const repoPath = await repository(input.repoPath);
+      return json(request, response, 200, {
+        repoPath,
+        ...(await buildCommitGraph(repoPath, input.base, input.target, input.focusCommit)),
+      });
     }
     if (request.method === "POST" && url.pathname === "/api/diff") {
       const input = await body(request);

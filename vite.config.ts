@@ -34,6 +34,10 @@ const localBindingConfig = {
 };
 
 export default defineConfig(async () => {
+  if (process.env.GIT_DIFF_LOCAL === "1") {
+    return { plugins: [vinext()] };
+  }
+
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= "false";

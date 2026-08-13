@@ -1,0 +1,44 @@
+ObjC.import("AppKit");
+
+function openWithSystemDefault(url) {
+  $.NSWorkspace.sharedWorkspace.openURL(url);
+}
+
+function run(argv) {
+  const pageURL = argv[0] || "http://127.0.0.1:9002/";
+  const pageOrigin = argv[1] || "http://127.0.0.1:9002";
+  const url = $.NSURL.URLWithString(pageURL);
+
+  try {
+    const applicationURL = $.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL(url);
+    if (!applicationURL) {
+      openWithSystemDefault(url);
+      return false;
+    }
+
+    const browser = Application(applicationURL.path.js);
+    if (browser.running()) {
+      const windows = browser.windows();
+      for (let windowIndex = 0; windowIndex < windows.length; windowIndex += 1) {
+        const browserWindow = windows[windowIndex];
+        const tabs = browserWindow.tabs();
+        for (let tabIndex = 0; tabIndex < tabs.length; tabIndex += 1) {
+          const browserTab = tabs[tabIndex];
+          const tabURL = String(browserTab.url());
+          if (!tabURL.startsWith(pageOrigin)) continue;
+
+          browserWindow.activeTabIndex = tabIndex + 1;
+          browserWindow.index = 1;
+          browserTab.reload();
+          browser.activate();
+          return true;
+        }
+      }
+    }
+  } catch (error) {
+    // Some URL handlers do not expose scriptable windows and tabs.
+  }
+
+  openWithSystemDefault(url);
+  return false;
+}
