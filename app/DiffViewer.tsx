@@ -4,6 +4,7 @@ import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState
 import { CommitGraph, CommitGraphData } from "./CommitGraph";
 import { orderDefaultBranches } from "./branch-order";
 import { markChangeBlocks, wrapChangeIndex, type ChangeMarkedRow } from "./change-navigation";
+import { deriveReviewFiles, summarizeFiles } from "./file-filter";
 
 const API_URL = process.env.NEXT_PUBLIC_GIT_DIFF_API_URL || "http://127.0.0.1:3101";
 
@@ -401,18 +402,12 @@ export function DiffViewer() {
     return () => window.cancelAnimationFrame(frame);
   }, [activeDiff.diff, changeCount, mode, scrollToChange, selectedPath]);
 
-  const filteredFiles = useMemo(() => {
-    if (!comparison) return [];
-    const query = search.trim().toLowerCase();
-    const pathPrefix = pathFilter.trim().replace(/^\.\//, "").toLowerCase();
-    return comparison.files.filter((file) => {
-      if (pathPrefix && !file.path.toLowerCase().startsWith(pathPrefix)) return false;
-      if (query && !file.path.toLowerCase().includes(query)) return false;
-      if (filter === "unread" && readFiles.has(file.path)) return false;
-      if (filter === "added" && file.status !== "added") return false;
-      return true;
-    });
-  }, [comparison, filter, pathFilter, readFiles, search]);
+  const { summaryFiles, visibleFiles } = useMemo(() => deriveReviewFiles(
+    comparison?.files ?? [],
+    { pathFilter, search, mode: filter, readFiles },
+  ), [comparison, filter, pathFilter, readFiles, search]);
+  const summary = useMemo(() => summarizeFiles(summaryFiles), [summaryFiles]);
+  const hasSummaryFilter = Boolean(pathFilter.trim() || search.trim() || filter === "added");
 
   const pathSuggestions = useMemo(() => {
     if (!comparison) return [];
@@ -424,12 +419,12 @@ export function DiffViewer() {
 
   const groups = useMemo(() => {
     const map = new Map<string, ChangedFile[]>();
-    for (const file of filteredFiles) {
+    for (const file of visibleFiles) {
       const group = file.path.includes("/") ? file.path.split("/")[0] : "根目录";
       map.set(group, [...(map.get(group) || []), file]);
     }
     return [...map.entries()];
-  }, [filteredFiles]);
+  }, [visibleFiles]);
 
   async function loadRepository(event?: FormEvent) {
     event?.preventDefault();
@@ -648,7 +643,7 @@ export function DiffViewer() {
         {sidebarOpen && <button className="sidebar-scrim" onClick={() => setSidebarOpen(false)} aria-label="关闭文件目录" />}
         <aside className={`file-sidebar ${sidebarOpen ? "open" : ""}`}>
           <div className="sidebar-heading">
-            <div><span>审阅目录</span><strong>{comparison && filteredFiles.length !== comparison.files.length ? `${filteredFiles.length} / ${comparison.files.length}` : comparison?.files.length || 0} 个文件</strong></div>
+            <div><span>审阅目录</span><strong>{comparison && visibleFiles.length !== comparison.files.length ? `${visibleFiles.length} / ${comparison.files.length}` : comparison?.files.length || 0} 个文件</strong></div>
             <span className="read-progress">已读 {readFiles.size}</span>
           </div>
           <label className="path-filter-box">
@@ -679,7 +674,7 @@ export function DiffViewer() {
                 ))}
               </section>
             ))}
-            {comparison && filteredFiles.length === 0 && <div className="empty-sidebar">没有符合条件的文件</div>}
+            {comparison && visibleFiles.length === 0 && <div className="empty-sidebar">没有符合条件的文件</div>}
           </div>
         </aside>
 
@@ -701,12 +696,12 @@ export function DiffViewer() {
 
               <section className="summary-card">
                 <div className="summary-lead">
-                  <p>这次比较包含 <strong>{comparison?.files.length || 0}</strong> 个文件</p>
+                  <p>{hasSummaryFilter ? "当前筛选包含" : "这次比较包含"} <strong>{summary.fileCount}</strong> 个文件</p>
                   <span>目标分支领先 {comparison?.commitsAhead || 0} 个提交 · 基于共同祖先比较</span>
                 </div>
-                <div className="summary-stat"><span>文件</span><strong>{comparison?.files.length || 0}</strong></div>
-                <div className="summary-stat added"><span>新增行</span><strong>+{comparison?.additions || 0}</strong></div>
-                <div className="summary-stat deleted"><span>删除行</span><strong>−{comparison?.deletions || 0}</strong><div className="change-bar"><i style={{ width: `${comparison && comparison.additions + comparison.deletions ? (comparison.additions / (comparison.additions + comparison.deletions)) * 100 : 50}%` }} /></div></div>
+                <div className="summary-stat"><span>文件</span><strong>{summary.fileCount}</strong></div>
+                <div className="summary-stat added"><span>新增行</span><strong>+{summary.additions}</strong></div>
+                <div className="summary-stat deleted"><span>删除行</span><strong>−{summary.deletions}</strong><div className="change-bar"><i style={{ width: `${summary.additionPercent}%` }} /></div></div>
               </section>
 
               <nav className="document-toolbar">

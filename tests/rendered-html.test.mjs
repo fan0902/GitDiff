@@ -166,3 +166,16 @@ test("the diff viewer exposes scoped change-block navigation", async () => {
   assert.match(source, /sourceCompareRef\.current\?\.querySelector/);
   assert.doesNotMatch(source, /document\.querySelector/);
 });
+
+test("the review summary uses the filtered statistics range", async () => {
+  const source = await readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /deriveReviewFiles/);
+  assert.match(source, /summarizeFiles\(summaryFiles\)/);
+  assert.match(source, /summary\.fileCount/);
+  assert.match(source, /summary\.additions/);
+  assert.match(source, /summary\.deletions/);
+  assert.match(source, /visibleFiles\.length/);
+  assert.doesNotMatch(source, /comparison\?\.additions/);
+  assert.doesNotMatch(source, /comparison\?\.deletions/);
+});
