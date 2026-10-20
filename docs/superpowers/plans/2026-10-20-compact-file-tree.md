@@ -421,8 +421,8 @@ git commit -m "feat: render compact review file tree"
 ### Task 3: Full verification and local GitDiff App deployment
 
 **Files:**
-- Deploy tracked source to: `/Users/fanlei06/Library/Application Support/GitDiff/site`
-- Rebuild: `/Users/fanlei06/Applications/GitDiff.app`
+- Deploy tracked source to: `$HOME/Library/Application Support/GitDiff/site`
+- Rebuild: `$HOME/Applications/GitDiff.app`
 
 - [ ] **Step 1: Run the complete quality gate**
 
@@ -438,9 +438,9 @@ Expected: lint exits 0, production build succeeds, all tests pass, diff check is
 - [ ] **Step 2: Back up and deploy the verified tracked source**
 
 ```bash
-runtime_site='/Users/fanlei06/Library/Application Support/GitDiff/site'
-support_root='/Users/fanlei06/Library/Application Support/GitDiff'
-app_bundle='/Users/fanlei06/Applications/GitDiff.app'
+runtime_site="${HOME}/Library/Application Support/GitDiff/site"
+support_root="${HOME}/Library/Application Support/GitDiff"
+app_bundle="${HOME}/Applications/GitDiff.app"
 mkdir -p "$support_root/backups"
 backup_dir=$(mktemp -d "$support_root/backups/compact-file-tree.XXXXXX")
 staging_dir=$(mktemp -d /tmp/gitdiff-compact-tree.XXXXXX)
