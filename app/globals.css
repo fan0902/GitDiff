@@ -97,23 +97,32 @@ code { font-family: var(--font-geist-mono), "SFMono-Regular", Consolas, monospac
 .sidebar-filters { margin: 0 18px 14px; padding-bottom: 14px; display: flex; gap: 6px; border-bottom: 1px solid #d8cfbf; }
 .sidebar-filters button { padding: 6px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
 .sidebar-filters button.active { background: var(--card); color: var(--accent); box-shadow: 0 1px 4px rgba(68,55,35,.08); font-weight: 700; }
-.file-groups { padding-bottom: 28px; }
-.file-group h3 { margin: 16px 22px 7px; display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
-.file-group h3 span { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,.48); }
-.file-item { position: relative; width: calc(100% - 18px); min-height: 62px; margin: 2px 9px; padding: 10px 13px; display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 10px; border: 1px solid transparent; border-radius: 9px; background: transparent; text-align: left; cursor: pointer; }
+.file-tree-wrap { padding: 0 9px 28px; }
+.file-tree { min-width: 0; }
+.file-tree-branch { min-width: 0; }
+.file-tree-directory { width: 100%; min-height: 34px; padding: 0 7px; display: grid; grid-template-columns: 14px 18px minmax(0,1fr) auto; align-items: center; gap: 5px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.file-tree-directory:hover { background: rgba(255,253,249,.55); }
+.file-tree-directory > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 650; }
+.file-tree-directory > span:last-child { color: var(--faint); font: 600 10px var(--font-geist-mono); }
+.file-tree-chevron { color: var(--muted); font-size: 15px; line-height: 1; text-align: center; }
+.file-tree-folder { display: grid; place-items: center; color: var(--accent); }
+.file-tree-folder svg { width: 15px; height: 15px; }
+.file-tree-children { margin-left: 12px; padding-left: 6px; border-left: 1px solid #d8cfbf; }
+.file-item { position: relative; width: 100%; min-height: 40px; margin: 1px 0; padding: 4px 7px; display: grid; grid-template-columns: 30px minmax(0,1fr) auto 14px; align-items: center; gap: 7px; border: 1px solid transparent; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
 .file-item:hover { background: rgba(255,253,249,.55); }
-.file-item.selected { background: var(--card); border-color: #ddd4c5; box-shadow: 0 5px 13px rgba(68,55,35,.08); }
+.file-item.selected { background: var(--card); border-color: #ddd4c5; box-shadow: 0 4px 11px rgba(68,55,35,.08); }
 .file-type { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 8px; background: var(--blue-soft); color: var(--blue); font: 700 10px var(--font-geist-mono); }
+.file-item .file-type { width: 28px; height: 28px; border-radius: 7px; font-size: 9px; }
 .file-type.status-added { background: var(--green-soft); color: var(--green); }
 .file-type.status-deleted { background: var(--red-soft); color: var(--red); }
 .file-type.status-renamed, .file-type.status-copied { background: #eee7f4; color: #725689; }
-.file-copy { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.file-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 620; }
-.file-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); font-size: 10px; }
+.file-tree-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 620; }
 .file-stats { display: flex; gap: 4px; font: 600 10px var(--font-geist-mono); }
 .file-stats i, .diff-actions i { color: var(--green); font-style: normal; }
 .file-stats b, .diff-actions b { color: var(--red); font-weight: 600; }
 .read-check { position: absolute; top: 4px; right: 4px; color: var(--green); }
+.file-item .read-check { position: static; display: grid; place-items: center; }
+.file-item .read-check svg { width: 13px; height: 13px; }
 .empty-sidebar { padding: 40px 20px; color: var(--muted); text-align: center; font-size: 12px; }
 
 .review-document { min-width: 0; padding: 44px clamp(28px, 5vw, 82px) 80px; }

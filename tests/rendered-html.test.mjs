@@ -179,3 +179,22 @@ test("the review summary uses the filtered statistics range", async () => {
   assert.doesNotMatch(source, /comparison\?\.additions/);
   assert.doesNotMatch(source, /comparison\?\.deletions/);
 });
+
+test("the review sidebar renders a compact collapsible file tree", async () => {
+  const [viewer, tree, styles] = await Promise.all([
+    readFile(new URL("../app/DiffViewer.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/FileTree.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(viewer, /buildFileTree\(visibleFiles\)/);
+  assert.match(viewer, /collectDirectoryKeys\(fileTree\)/);
+  assert.match(viewer, /<FileTree/);
+  assert.match(viewer, /role="treeitem"[\s\S]{0,200}aria-selected/);
+  assert.doesNotMatch(viewer, /groups\.map/);
+  assert.match(tree, /role="tree"/);
+  assert.match(tree, /aria-expanded/);
+  assert.match(tree, /file-tree-directory/);
+  assert.match(styles, /\.file-tree-children/);
+  assert.match(styles, /\.file-tree-directory/);
+});

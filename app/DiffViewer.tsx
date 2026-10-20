@@ -2,9 +2,11 @@
 
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CommitGraph, CommitGraphData } from "./CommitGraph";
+import { FileTree } from "./FileTree";
 import { orderDefaultBranches } from "./branch-order";
 import { markChangeBlocks, wrapChangeIndex, type ChangeMarkedRow } from "./change-navigation";
 import { deriveReviewFiles, summarizeFiles } from "./file-filter";
+import { buildFileTree, collectDirectoryKeys } from "./file-tree";
 
 const API_URL = process.env.NEXT_PUBLIC_GIT_DIFF_API_URL || "http://127.0.0.1:3101";
 
@@ -355,6 +357,7 @@ export function DiffViewer() {
   const [pathFilter, setPathFilter] = useState("app/");
   const [filter, setFilter] = useState<"all" | "unread" | "added">("all");
   const [readFiles, setReadFiles] = useState<Set<string>>(new Set());
+  const [collapsedDirectories, setCollapsedDirectories] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<ReviewMode>("full");
   const [loadingRepo, setLoadingRepo] = useState(false);
   const [loadingCompare, setLoadingCompare] = useState(false);
@@ -417,14 +420,25 @@ export function DiffViewer() {
       .sort();
   }, [comparison]);
 
-  const groups = useMemo(() => {
-    const map = new Map<string, ChangedFile[]>();
-    for (const file of visibleFiles) {
-      const group = file.path.includes("/") ? file.path.split("/")[0] : "根目录";
-      map.set(group, [...(map.get(group) || []), file]);
-    }
-    return [...map.entries()];
-  }, [visibleFiles]);
+  const fileTree = useMemo(() => buildFileTree(visibleFiles), [visibleFiles]);
+  const directoryKeys = useMemo(() => collectDirectoryKeys(fileTree), [fileTree]);
+  const expandedDirectories = useMemo(() => new Set(
+    directoryKeys.filter((key) => !collapsedDirectories.has(key)),
+  ), [collapsedDirectories, directoryKeys]);
+
+  function toggleDirectory(key: string) {
+    setCollapsedDirectories((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function resetTreeAndSet<T>(setter: (value: T) => void, value: T) {
+    setCollapsedDirectories(new Set());
+    setter(value);
+  }
 
   async function loadRepository(event?: FormEvent) {
     event?.preventDefault();
@@ -445,6 +459,7 @@ export function DiffViewer() {
       setCompactDiff(EMPTY_DIFF);
       setCurrentChangeIndex(0);
       setReadFiles(new Set());
+      setCollapsedDirectories(new Set());
       setGraph(null);
       setLastGoodGraph(null);
       setFocusInput("");
@@ -468,6 +483,7 @@ export function DiffViewer() {
       const firstVisibleFile = data.files.find((file) => !defaultPath || file.path.startsWith(defaultPath));
       setComparison(data);
       setReadFiles(new Set());
+      setCollapsedDirectories(new Set());
       setPathFilter(defaultPath);
       setSearch("");
       setFilter("all");
@@ -648,32 +664,41 @@ export function DiffViewer() {
           </div>
           <label className="path-filter-box">
             <span>{icons.folder}</span>
-            <input list="changed-path-prefixes" value={pathFilter} onChange={(event) => setPathFilter(event.target.value)} placeholder="路径前缀，例如 app/services/" aria-label="按文件路径过滤" />
-            {pathFilter && <button type="button" onClick={() => setPathFilter("")} aria-label="清除路径过滤">×</button>}
+            <input list="changed-path-prefixes" value={pathFilter} onChange={(event) => resetTreeAndSet(setPathFilter, event.target.value)} placeholder="路径前缀，例如 app/services/" aria-label="按文件路径过滤" />
+            {pathFilter && <button type="button" onClick={() => resetTreeAndSet(setPathFilter, "")} aria-label="清除路径过滤">×</button>}
             <datalist id="changed-path-prefixes">
               {pathSuggestions.map((path) => <option value={path} key={path} />)}
             </datalist>
           </label>
-          <div className="search-box">{icons.search}<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索文件" /></div>
+          <div className="search-box">{icons.search}<input value={search} onChange={(event) => resetTreeAndSet(setSearch, event.target.value)} placeholder="搜索文件" /></div>
           <div className="sidebar-filters">
-            <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>全部</button>
-            <button className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>未读</button>
-            <button className={filter === "added" ? "active" : ""} onClick={() => setFilter("added")}>仅新增</button>
+            <button className={filter === "all" ? "active" : ""} onClick={() => resetTreeAndSet(setFilter, "all")}>全部</button>
+            <button className={filter === "unread" ? "active" : ""} onClick={() => resetTreeAndSet(setFilter, "unread")}>未读</button>
+            <button className={filter === "added" ? "active" : ""} onClick={() => resetTreeAndSet(setFilter, "added")}>仅新增</button>
           </div>
-          <div className="file-groups">
-            {groups.map(([group, files]) => (
-              <section className="file-group" key={group}>
-                <h3>{group}<span>{files.length}</span></h3>
-                {files.map((file) => (
-                  <button className={`file-item ${file.path === selectedPath ? "selected" : ""}`} key={file.path} onClick={() => void loadFileDiff(file)}>
-                    <span className={`file-type status-${file.status}`}>{extension(file.path)}</span>
-                    <span className="file-copy"><strong>{fileName(file.path)}</strong><small>{directory(file.path)}</small></span>
-                    <span className="file-stats"><i>+{file.additions}</i>{file.deletions > 0 && <b>−{file.deletions}</b>}</span>
-                    {readFiles.has(file.path) && <span className="read-check">{icons.check}</span>}
-                  </button>
-                ))}
-              </section>
-            ))}
+          <div className="file-tree-wrap">
+            <FileTree
+              nodes={fileTree}
+              expandedKeys={expandedDirectories}
+              folderIcon={icons.folder}
+              onToggle={toggleDirectory}
+              renderFile={(file) => (
+                <button
+                  type="button"
+                  role="treeitem"
+                  aria-selected={file.path === selectedPath}
+                  title={file.path}
+                  className={`file-item ${file.path === selectedPath ? "selected" : ""}`}
+                  key={file.path}
+                  onClick={() => void loadFileDiff(file)}
+                >
+                  <span className={`file-type status-${file.status}`}>{extension(file.path)}</span>
+                  <strong className="file-tree-file-name">{fileName(file.path)}</strong>
+                  <span className="file-stats"><i>+{file.additions}</i>{file.deletions > 0 && <b>−{file.deletions}</b>}</span>
+                  {readFiles.has(file.path) && <span className="read-check">{icons.check}</span>}
+                </button>
+              )}
+            />
             {comparison && visibleFiles.length === 0 && <div className="empty-sidebar">没有符合条件的文件</div>}
           </div>
         </aside>
